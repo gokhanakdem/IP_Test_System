@@ -1,6 +1,7 @@
 using Microsoft.EntityFrameworkCore;
 using IpEnvanterAPI.Data;
 using IpEnvanterAPI.Models; // Kendi proje adýn farklýysa (Örn: Ip_test) burayý ona göre düzelt
+using System.Net.NetworkInformation;
 
 var builder = WebApplication.CreateBuilder(args);
 
@@ -38,6 +39,75 @@ app.MapPost("/api/cihazlar", (AppDbContext db, Cihaz YeniCihaz) =>
     db.SaveChanges();
     return Results.Ok("Cihaz baþarýyla eklendi!");
 
+});
+//Ping atma iþlemini yaparak IP yi kontrol ediyoruz
+app.MapGet("/api/ping/{ip}", (string ip) =>
+{
+    Ping pingGonderici = new Ping();
+
+    try
+    {
+        // Hedef IP'ye ping atýyoruz
+        PingReply cevap = pingGonderici.Send(ip);
+
+        // Eðer sonuç baþarýlýysa
+        if (cevap.Status == IPStatus.Success)
+        {
+            return Results.Ok("Cihaz Aktif!"); // 'return' eklendi
+        }
+        else
+        {
+            // Zaman aþýmý veya ulaþýlamama durumu
+            return Results.BadRequest("Cihaz Pasif veya Ulaþýlamýyor!"); // 'return' eklendi
+        }
+    }
+    catch (Exception ex)
+    {
+        // IP formatý yanlýþsa veya að hatasý varsa buraya düþer
+        return Results.BadRequest($"Ping atýlýrken hata oluþtu: {ex.Message}");
+    }
+});
+// Veritabanýndaki tüm cihazlarý kontrol eden rota
+app.MapPost("/api/ping/hepsini-kontrol-et", (AppDbContext db) =>
+{
+    // 1. Veritabanýndaki tüm cihazlarý bir listeye alýyoruz
+    var cihazlar = db.Cihazlar.ToList();
+    Ping pingGonderici = new Ping();
+
+    // 2. Listedeki her bir cihaz için sýrayla iþlem yapýyoruz (Döngü)
+    foreach (var cihaz in cihazlar)
+    {
+        try
+        {
+            // pingGonderici ile o anki 'cihaz.IpAdresi'ne ping attýk
+            PingReply cevap = pingGonderici.Send(cihaz.IpAdresi);
+
+            // cihazýn 'AktifMi' özelliðini true, deðilse (else) false yap.
+            if (cevap.Status == IPStatus.Success)
+            {
+                cihaz.AktifMi = true;
+            }
+            else
+            {
+                cihaz.AktifMi = false;
+            }
+            //Þu ana atýldý zaman
+            cihaz.SonKontrolTarihi = DateTime.Now;
+        }
+        catch
+        {
+            // Eðer IP adresi hatalýysa veya að çökükse program patlamasýn, cihazý kapalý sayalým.
+            cihaz.AktifMi = false;
+            cihaz.SonKontrolTarihi = DateTime.Now;
+        }
+
+    }
+
+    // güncellenen tüm cihazlarý veritabanýna kaydettik.
+    db.SaveChanges();
+
+    // Ýþlem bitince güncel listeyi kullanýcýya geri gönderiyoruz
+    return Results.Ok(cihazlar);
 });
 
 app.Run();
