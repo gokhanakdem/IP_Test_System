@@ -15,14 +15,28 @@ builder.Services.AddDbContext<AppDbContext>(options =>
 builder.Services.AddEndpointsApiExplorer();
 builder.Services.AddSwaggerGen();
 
+// 1. ÇATI KAPANMADAN ÖNCE: Cors servisini (kurallarýný) ekliyoruz
+builder.Services.AddCors(options =>
+{
+    options.AddPolicy("IzinVer", policy =>
+    {
+        policy.AllowAnyOrigin()   // Herhangi bir adresten (bizim html dosyasýndan)
+              .AllowAnyHeader()   // Herhangi bir baþlýkla
+              .AllowAnyMethod();  // Herhangi bir metodla (GET, POST vs) eriþime izin ver
+    });
+});
+
+// --- ÝNÞAAT BÝTÝYOR, ÇATI KAPANIYOR ---
 var app = builder.Build();
+
+// 2. ÇATI KAPANDIKTAN SONRA: Eklediðimiz servisi devreye sokuyoruz
+app.UseCors("IzinVer");
 
 if (app.Environment.IsDevelopment())
 {
     app.UseSwagger();
     app.UseSwaggerUI();
 }
-
 app.UseHttpsRedirection();
 
 // Dýþarýdan "/api/cihazlar" adresine girildiðinde çalýþacak kod bloðu
@@ -108,6 +122,19 @@ app.MapPost("/api/ping/hepsini-kontrol-et", (AppDbContext db) =>
 
     // Ýþlem bitince güncel listeyi kullanýcýya geri gönderiyoruz
     return Results.Ok(cihazlar);
+});
+// Cihazý veritabanýndan silen rota
+app.MapDelete("/api/cihazlar/{id}", (AppDbContext db, int id) =>
+{
+    var cihaz = db.Cihazlar.Find(id);
+    if (cihaz == null)
+    {
+        return Results.NotFound("Cihaz bulunamadý!");
+    }
+
+    db.Cihazlar.Remove(cihaz);
+    db.SaveChanges();
+    return Results.Ok("Cihaz baþarýyla silindi.");
 });
 
 app.Run();
