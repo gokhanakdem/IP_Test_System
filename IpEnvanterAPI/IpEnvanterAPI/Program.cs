@@ -81,6 +81,40 @@ app.MapGet("/api/ping/{ip}", (string ip) =>
         return Results.BadRequest($"Ping atýlýrken hata oluþtu: {ex.Message}");
     }
 });
+// CSV'den Toplu Cihaz Yükleme Rotasý
+app.MapPost("/api/cihazlar/csv-yukle", async (IFormFile dosya, AppDbContext db) =>
+{
+    if (dosya == null || dosya.Length == 0)
+        return Results.BadRequest("Lütfen geçerli bir CSV dosyasý seçin.");
+
+    using var streamOkuyucu = new StreamReader(dosya.OpenReadStream());
+
+    while (!streamOkuyucu.EndOfStream)
+    {
+        var satir = await streamOkuyucu.ReadLineAsync();
+        if (string.IsNullOrWhiteSpace(satir)) continue;
+
+        // CSV dosyalarý genellikle virgül (,) ile ayrýlýr. 
+        // Beklenen format: "192.168.1.50,00:1A:2B:3C:4D:5E,Ahmet Yýlmaz"
+        var hucreler = satir.Split(',');
+
+        if (hucreler.Length >= 3)
+        {
+            var yeniCihaz = new Cihaz
+            {
+                IpAdresi = hucreler[0].Trim(),
+                MacAdresi = hucreler[1].Trim(),
+                CihazSahibi = hucreler[2].Trim(),
+                AktifMi = false, // Ýlk eklendiðinde durum pasif baþlar
+                SonKontrolTarihi = DateTime.Now
+            };
+            db.Cihazlar.Add(yeniCihaz);
+        }
+    }
+    await db.SaveChangesAsync();
+    return Results.Ok("Cihazlar CSV'den baþarýyla aktarýldý!");
+}).DisableAntiforgery();
+
 // Veritabanýndaki tüm cihazlarý kontrol eden rota
 app.MapPost("/api/ping/hepsini-kontrol-et", (AppDbContext db) =>
 {

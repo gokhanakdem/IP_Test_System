@@ -4,26 +4,12 @@
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>IP TEST SYSTEM</title>
-    <!-- Bootstrap 5 CDN -->
     <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.0.2/dist/css/bootstrap.min.css" rel="stylesheet">
     <style>
-        body { 
-            background-color: #f4f6f9; 
-            padding-top: 2rem; 
-        }
-        h1 {
-            font-family: 'Franklin Gothic Medium', 'Arial Narrow', Arial, sans-serif;
-            color: #333;
-            font-weight: bold;
-        }
-        .card { 
-            border-radius: 10px; 
-            box-shadow: 0 4px 6px rgba(0,0,0,0.05); 
-            border: none;
-        }
-        .submit-but {
-            border-radius: 10px;
-        }
+        body { background-color: #f4f6f9; padding-top: 2rem; }
+        h1 { font-family: 'Franklin Gothic Medium', 'Arial Narrow', Arial, sans-serif; color: #333; font-weight: bold; }
+        .card { border-radius: 10px; box-shadow: 0 4px 6px rgba(0,0,0,0.05); border: none; }
+        .submit-but { border-radius: 10px; }
     </style>
 </head>
 <body>
@@ -31,7 +17,7 @@
         <h1 class="text-center mb-5">IP TEST SYSTEM</h1>
         
         <div class="row">
-            <!-- Sol Taraf: Cihaz Ekleme Formu (Senin tasarımın) -->
+            <!-- Sol Panel: Ekleme İşlemleri -->
             <div class="col-md-3 mb-4">
                 <div class="card p-4">
                     <h4 class="mb-4 text-center">Yeni Cihaz Ekle</h4>
@@ -39,10 +25,18 @@
                     <input type="text" id="macInput" placeholder="MAC Adresi" class="form-control mb-3" >
                     <input type="text" id="clientInput" placeholder="Cihaz Sahibi" class="form-control mb-4" >
                     <button id="submitBtn" class="btn btn-primary submit-but w-100 py-2">Sisteme Kaydet</button>
+
+                    <hr class="my-4">
+
+                    <h6 class="text-center mb-3">Toplu Cihaz Yükle</h6>
+                    <input type="file" id="csvInput" accept=".csv" style="display:none;">
+                    <label for="csvInput" class="btn btn-secondary w-100" id="csvLabel">CSV Dosyası Seç</label>
+                    <div id="csvFilename" class="mt-2 small text-truncate text-center">Seçilmedi</div>
+                    <button id="csvUploadBtn" class="btn btn-success w-100 mt-2">Dosyayı Veritabanına Aktar</button>
                 </div>
             </div>
 
-            <!-- Sağ Taraf: Cihaz Listesi ve Tablo -->
+            <!-- Sağ Panel: Liste ve Tablo -->
             <div class="col-md-9">
                 <div class="card p-4">
                     <div class="d-flex justify-content-between align-items-center mb-3">
@@ -60,128 +54,129 @@
                                     <th>Cihaz Sahibi</th>
                                     <th>Durum</th>
                                     <th>Son Kontrol Tarihi</th>
+                                    <th>İşlem</th>
                                 </tr>
                             </thead>
-                            <tbody id="cihazListesiBody">
-                            </tbody>
+                            <tbody id="cihazListesiBody"></tbody>
                         </table>
                     </div>
                 </div>
             </div>
         </div>
     </div>
+
     <script>
-            // Tablonun gövdesini (HTML'deki tbody) yakalıyoruz
-            const tabloGovdesi = document.getElementById("cihazListesiBody");
+        const tabloGovdesi = document.getElementById("cihazListesiBody");
+        const apiAdresi = "https://localhost:7216/api/cihazlar";
 
-            // Sayfa yüklendiğinde verileri çekecek ana fonksiyonumuz
-            async function cihazlariGetir() {
+        // 1. Verileri Getir ve Tabloya Bas
+        async function cihazlariGetir() {
             try {
-                    // GÖREV 1: Swagger'dan kopyaladığın adresi buraya yapıştır (Sonuna /api/cihazlar eklemeyi unutma)
-                    const apiAdresi = "https://localhost:7216/api/cihazlar"; 
-        
-                    // Fetch ile API'ye gidip cevabı alıyoruz
-                    const cevap = await fetch(apiAdresi);
-                    const cihazlar = await cevap.json(); // Gelen JSON'ı diziye çeviriyoruz
-                    console.log("API'den Gelen Veri:", cihazlar);
+                const cevap = await fetch(apiAdresi);
+                const cihazlar = await cevap.json();
+                tabloGovdesi.innerHTML = "";
+                
+                cihazlar.forEach(cihaz => {
+                    let satir = `<tr>
+                        <td>${cihaz.id}</td>
+                        <td>${cihaz.ipAdresi}</td>
+                        <td>${cihaz.macAdresi}</td>
+                        <td>${cihaz.cihazSahibi}</td>
+                        <td><span class="badge ${cihaz.aktifMi ? 'bg-success' : 'bg-danger'}">${cihaz.aktifMi ? 'Aktif' : 'Pasif'}</span></td>
+                        <td>${new Date(cihaz.sonKontrolTarihi).toLocaleString()}</td>
+                        <td><button class="btn btn-sm btn-danger" onclick="cihazSil(${cihaz.id})">❌</button></td>
+                    </tr>`;
+                    tabloGovdesi.innerHTML += satir;
+                });
+            } catch (hata) {
+                console.error("Getirme hatası:", hata);
+            }
+        }
 
-                    // HTML'de görsel test için koyduğumuz statik satırı siliyoruz ki tablo temizlensin
-                    tabloGovdesi.innerHTML = "";
+        // 2. Yeni Cihaz Ekle
+        document.getElementById("submitBtn").addEventListener("click", async () => {
+            const ip = document.getElementById("ipInput").value;
+            const mac = document.getElementById("macInput").value;
+            const client = document.getElementById("clientInput").value;
 
-                    cihazlar.forEach(cihaz => {
+            try {
+                const response = await fetch(apiAdresi, {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({ ipAdresi: ip, macAdresi: mac, cihazSahibi: client })
+                });
 
-                        let satir = `<tr>
-                                        <td>${cihaz.id}</td>
-                                        <td>${cihaz.ipAdresi}</td>
-                                        <td>${cihaz.macAdresi}</td>
-                                        <td>${cihaz.cihazSahibi}</td>
-                                        <td><span class="badge ${cihaz.aktifMi ? 'bg-success' : 'bg-danger'}">${cihaz.aktifMi ? 'Aktif' : 'Pasif'}</span></td>
-                                        <td>${new Date(cihaz.sonKontrolTarihi).toLocaleString()}</td>
-                                        <td>
-                                        <button class="btn btn-sm btn-danger" onclick="cihazSil(${cihaz.id})">❌</button>
-                                        </td>
-                                    </tr>`;
-                        // Son olarak bu satırı tabloya ekle:
-                        tabloGovdesi.innerHTML += satir;
-                    });
-                    } catch (hata) {
-                        console.error("Veriler çekilirken hata oluştu:", hata);
-                    }
+                if (response.ok) {
+                    alert("Cihaz eklendi!");
+                    cihazlariGetir(); 
                 }
-                // Sayfa açıldığında fonksiyonu otomatik çalıştır
+            } catch (error) {
+                console.error("Ekleme hatası:", error);
+            }
+        });
+
+        // 3. Cihaz Sil
+        async function cihazSil(id) {
+            if (!confirm("Silmek istediğinize emin misiniz?")) return;
+            try {
+                await fetch(`${apiAdresi}/${id}`, { method: "DELETE" });
+                await cihazlariGetir(); 
+            } catch (hata) {
+                console.error("Silme hatası:", hata);
+            }
+        }
+
+        // 4. Tümüne Ping At
+        const pingBtn = document.getElementById("pingAllBtn");
+        pingBtn.addEventListener("click", async () => {
+            try {
+                pingBtn.innerHTML = "⏳ Kontrol Ediliyor...";
+                await fetch("https://localhost:7216/api/ping/hepsini-kontrol-et", { method: "POST" });
+                await cihazlariGetir();
+                pingBtn.innerHTML = "⚡ Tümüne Ping At";
+            } catch (hata) {
+                console.error("Ping hatası:", hata);
+                pingBtn.innerHTML = "⚡ Tümüne Ping At";
+            }
+        });
+
+        // 5. CSV Dosya Seçimini Ekranda Göster
+        const csvInput = document.getElementById("csvInput");
+        csvInput.addEventListener("change", (event) => {
+            const file = event.target.files[0];
+            if (file) {
+                document.getElementById("csvFilename").textContent = file.name;
+            }
+        });
+
+        // 6. CSV Dosyasını API'ye Gönder
+        document.getElementById("csvUploadBtn").addEventListener("click", async () => {
+            const file = csvInput.files[0];
+            if (!file) {
+                alert("Lütfen bir CSV dosyası seçin!");
+                return;
+            }
+
+            let formData = new FormData();
+            formData.append("dosya", file); // C# tarafındaki parametre adıyla eşleşmeli
+
+            try {
+                await fetch(`${apiAdresi}/csv-yukle`, {
+                    method: "POST",
+                    body: formData // Headers eklemiyoruz, FormData kendini ayarlar
+                });
+
+                alert("Cihazlar CSV'den aktarıldı!");
                 cihazlariGetir();
+                csvInput.value = "";
+                document.getElementById("csvFilename").textContent = "Seçilmedi";
+            } catch (error) {
+                console.error("CSV yükleme hatası:", error);
+            }
+        });
 
-                // Toplu ping butonunu yakala ve tıklamayı dinle
-                const pingBtn = document.getElementById("pingAllBtn");
-
-                pingBtn.addEventListener("click", async () => {
-                try {
-                    // Kullanıcıya işlemin başladığını göstermek için buton metnini değiştiriyoruz
-                    pingBtn.innerHTML = "⏳ Kontrol Ediliyor...";
-        
-                    // C# tarafındaki toplu ping rotamızı POST metoduyla tetikliyoruz
-                    await fetch("https://localhost:7216/api/ping/hepsini-kontrol-et", {
-                        method: "POST"
-                    });
-        
-                    // İşlem bitince güncel verileri tabloya tekrar basıyoruz
-                    await cihazlariGetir();
-        
-                    // Butonu eski haline getiriyoruz
-                    pingBtn.innerHTML = "⚡ Tümüne Ping At";
-                    } catch (hata) {
-                        console.error("Ping işlemi başarısız:", hata);
-                        pingBtn.innerHTML = "⚡ Tümüne Ping At";
-                    }
-                });
-
-                document.getElementById("submitBtn").addEventListener("click", async () => {
-                    const ip = document.getElementById("ipInput").value;
-                    const mac = document.getElementById("macInput").value;
-                    const client = document.getElementById("clientInput").value;
-
-                    // GÖREV 2: Cihaz ekleme API'sine POST isteği at
-                    const apiEklemeAdresi = "https://localhost:7216/api/cihazlar"; // Örnek adres, kendi API adresini kullan
-
-                    try {
-                        const response = await fetch(apiEklemeAdresi, {
-                            method: 'POST',
-                            headers: {
-                                'Content-Type': 'application/json'
-                            },
-                            body: JSON.stringify({
-                                ipAdresi: ip,
-                                macAdresi: mac,
-                                cihazSahibi: client
-                            })
-                        });
-
-                        if (response.ok) {
-                            alert("Cihaz başarıyla eklendi!");
-                            cihazlariGetir(); // Listeyi güncelle
-                        } else {
-                            alert("Cihaz eklenirken bir hata oluştu.");
-                        }
-                    } catch (error) {
-                        console.error("Cihaz ekleme hatası:", error);
-                    }
-                });
-                // Kırmızı çarpıya basıldığında çalışacak silme fonksiyonu
-                async function cihazSil(id) {
-                    // Yanlışlıkla basmalara karşı onay alalım
-                    if (!confirm("Bu cihazı silmek istediğinize emin misiniz?")) return;
-
-                    try {
-                        await fetch(`https://localhost:7216/api/cihazlar/${id}`, {
-                        method: "DELETE"
-                    });
-        
-                    // Silme işlemi bitince tabloyu güncel haliyle tekrar çiz
-                    await cihazlariGetir(); 
-                    } catch (hata) {
-                        console.error("Silme işlemi başarısız:", hata);
-                    }
-                }
+        // Sayfa açıldığında tabloyu doldur
+        cihazlariGetir();
     </script>
 </body>
 </html>
