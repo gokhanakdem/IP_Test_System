@@ -41,7 +41,11 @@
                 <div class="card p-4">
                     <div class="d-flex justify-content-between align-items-center mb-3">
                         <h4 class="m-0">Ağdaki Cihazlar</h4>
-                        <button id="pingAllBtn" class="btn btn-warning fw-bold px-4">⚡ Tümüne Ping At</button>
+                        <div>
+                            <button id="pingAllBtn" class="btn btn-warning fw-bold px-4">⚡ Tümüne Ping At</button>
+                            <!-- YENİ EKLENEN EXCEL BUTONU -->
+                            <button id="exportExcelBtn" class="btn btn-success fw-bold px-4 ms-2">📥 Excel'e İndir</button>
+                        </div>
                     </div>
                     
                     <div class="table-responsive">
@@ -158,12 +162,12 @@
             }
 
             let formData = new FormData();
-            formData.append("dosya", file); // C# tarafındaki parametre adıyla eşleşmeli
+            formData.append("dosya", file); 
 
             try {
                 await fetch(`${apiAdresi}/csv-yukle`, {
                     method: "POST",
-                    body: formData // Headers eklemiyoruz, FormData kendini ayarlar
+                    body: formData 
                 });
 
                 alert("Cihazlar CSV'den aktarıldı!");
@@ -172,6 +176,36 @@
                 document.getElementById("csvFilename").textContent = "Seçilmedi";
             } catch (error) {
                 console.error("CSV yükleme hatası:", error);
+            }
+        });
+
+        // 7. Excel'e (CSV) İndirme İşlemi 
+        document.getElementById("exportExcelBtn").addEventListener("click", async () => {
+            try {
+                const cevap = await fetch(apiAdresi);
+                const cihazlar = await cevap.json();
+
+                let csvIcerigi = "ID;IP Adresi;MAC Adresi;Cihaz Sahibi;Durum;Son Kontrol\n";
+
+                cihazlar.forEach(cihaz => {
+                    let durum = cihaz.aktifMi ? "Aktif" : "Pasif";
+                    let tarih = new Date(cihaz.sonKontrolTarihi).toLocaleString();
+                    csvIcerigi += `${cihaz.id};${cihaz.ipAdresi};${cihaz.macAdresi};${cihaz.cihazSahibi};${durum};${tarih}\n`;
+                });
+
+                // BOM (Türkçe karakter desteği)
+                const bom = new Uint8Array([0xEF, 0xBB, 0xBF]); 
+                const blob = new Blob([bom, csvIcerigi], { type: "text/csv;charset=utf-8;" });
+
+                const link = document.createElement("a");
+                link.href = URL.createObjectURL(blob);
+                link.download = "IP_Envanter_Raporu.csv";
+                document.body.appendChild(link);
+                link.click();
+                document.body.removeChild(link);
+            } catch (hata) {
+                console.error("Excel indirme hatası:", hata);
+                alert("Rapor oluşturulurken bir hata meydana geldi.");
             }
         });
 
