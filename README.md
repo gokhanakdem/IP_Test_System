@@ -29,6 +29,7 @@ Bu proje, yerel ağdaki (LAN) cihazların IP ve MAC adreslerini kayıt altına a
 Projeyi klonladığınızda iki ana klasör göreceksiniz:
 * `IpEnvanterAPI/`: C# ile yazılmış veritabanı ve sunucu kodlarının bulunduğu klasör.
 * `Frontend/`: Kullanıcının etkileşime girdiği HTML/CSS/JS arayüz dosyalarının bulunduğu klasör.
+* Eğer bir IP veritabannı varsa bunu .csv dosyasına çevirerek sistemin veritabanına ekleyerek Ping atabilirsiniz.
 
 ## ⚙️ Kurulum ve Çalıştırma
 
