@@ -185,11 +185,14 @@
                 const cevap = await fetch(apiAdresi);
                 const cihazlar = await cevap.json();
 
+                // İP Adresi, MAC Adresi, Cihaz Sahibi
                 let csvIcerigi = "ID;IP Adresi;MAC Adresi;Cihaz Sahibi;Durum;Son Kontrol\n";
 
                 cihazlar.forEach(cihaz => {
                     let durum = cihaz.aktifMi ? "Aktif" : "Pasif";
                     let tarih = new Date(cihaz.sonKontrolTarihi).toLocaleString();
+
+                    
                     csvIcerigi += `${cihaz.id};${cihaz.ipAdresi};${cihaz.macAdresi};${cihaz.cihazSahibi};${durum};${tarih}\n`;
                 });
 
@@ -199,7 +202,7 @@
 
                 const link = document.createElement("a");
                 link.href = URL.createObjectURL(blob);
-                link.download = "IP_Envanter_Raporu.csv";
+                link.download = "IP_Envanter_Raporu.csv"; 
                 document.body.appendChild(link);
                 link.click();
                 document.body.removeChild(link);
