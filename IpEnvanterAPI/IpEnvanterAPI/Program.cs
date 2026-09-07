@@ -25,8 +25,6 @@ builder.Services.AddCors(options =>
               .AllowAnyMethod();  // Herhangi bir metodla (GET, POST vs) eriþime izin ver
     });
 });
-
-// --- ÝNÞAAT BÝTÝYOR, ÇATI KAPANIYOR ---
 var app = builder.Build();
 
 // 2. ÇATI KAPANDIKTAN SONRA: Eklediðimiz servisi devreye sokuyoruz
@@ -67,12 +65,12 @@ app.MapGet("/api/ping/{ip}", (string ip) =>
         // Eðer sonuç baþarýlýysa
         if (cevap.Status == IPStatus.Success)
         {
-            return Results.Ok("Cihaz Aktif!"); // 'return' eklendi
+            return Results.Ok("Cihaz Aktif!"); 
         }
         else
         {
             // Zaman aþýmý veya ulaþýlamama durumu
-            return Results.BadRequest("Cihaz Pasif veya Ulaþýlamýyor!"); // 'return' eklendi
+            return Results.BadRequest("Cihaz Pasif veya Ulaþýlamýyor!"); 
         }
     }
     catch (Exception ex)
